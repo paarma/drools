@@ -1,0 +1,90 @@
+//package: en el se puede indicar como el "namespace" de trabajo para funcionalidades de drools (no hace referencia al ruta de package física de algun archivo)
+package myAppRules;
+
+//Se importan las clases con las cuales se trabajara en las reglas
+import com.ejemplo.drools.modelo.*;
+
+//importar una función específica. Ojo importante va el paquete.nombreClase y nombre función
+import function com.ejemplo.drools.util.Utils.prettyTraces;
+
+
+//Se referencia a los objetos globales que hemos agregado en este caso "publishTool"
+global com.ejemplo.drools.servicio.PushSubService publishTool;
+
+/*
+dialect: indica el tipo de lenguaje usado para la definición dentro de las reglas
+mvel: ofrece una sintaxis que va a corde a la nomenclatura de java standar.
+*/
+dialect  "mvel"
+
+
+//Crear funcion dentro del drl
+function Integer calculateIncrement(Integer value, int quantity) {
+    return value + quantity;
+}
+
+//Declarar clases
+declare Product
+	code : int
+	name : String
+	description : String
+end
+
+
+/**
+Atributos de las reglas:
+
+*no-loop : Hace que la regla se ejecute solo una vez en caso de cumplirse.
+
+*salience : Indica la prioridad para ejecutar reglas. A mayor valor de salience, mayor prioridad tiene la regla para ejecutarse. (acepta valores negativos también)
+
+*ageda-group: Se utiliza para agrupar reglas por una etiqueta y al ejecutar las reglas se le dice que etiqueta ejecutar con lo cual solo ejecuta las reglas agrupadas por dicha etiqueta.
+
+*/
+
+
+rule "Adjust Product Price"	
+ no-loop
+ agenda-group "OtroGroup"
+ salience 2
+	when
+		$p: ProductPrice(basePrice > 2)
+	then
+		//Modificamos el precio del producto.
+		//En este caso se abre un bloque "modify" a la variable $p (precioPorducto) y se hace uso del método "setBasePrice" del objeto
+		modify($p){
+			setBasePrice($p.basePrice - 1)
+		}
+		
+		//System.out.println("************** EJECUTANDO -Adjust Product Price- para el producto [" + $p + "]");
+		
+		//Llamando a una función específica que se incluyo al inicio en los imports
+		prettyTraces("el precio ajustado es " + $p.basePrice);
+		
+		
+		//Llamando funcion que está definida en este mismo drl
+		prettyTraces(calculateIncrement($p.basePrice, 3));
+		
+		//Creación de objeto
+		Product pro = new Product();
+	    pro.setCode(123);
+	    pro.setName("Platano");
+	    pro.setDescription("Platano verde");
+		
+		prettyTraces(pro);
+		
+		//Se llama al servicio de publicar que fijamos como global en la sessión de drools:
+		publishTool.publishNewProductCreated(pro);
+		
+end
+
+
+rule "Welcome Message"
+ agenda-group "MessagesGroup"
+	when
+		 $m : Message()
+	then
+		$m.setMessage("My message");
+		System.out.println("Hello Mr. " + $m.message);
+		System.out.println("************** Hello Mr. con get " + $m.getMessage());
+end
